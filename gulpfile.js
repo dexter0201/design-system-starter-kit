@@ -14,6 +14,8 @@ const gulp = require('gulp')
 const del = require('del')
 const browserSync = require('browser-sync')
 const JSON5 = require('json5')
+const rollup = require("rollup")
+const rollupConfig = require("./rollup.config.js")
 const gulpLoadPlugins = require('gulp-load-plugins')
 
 const $ = gulpLoadPlugins()
@@ -53,6 +55,23 @@ const getData = (file) => {
   }
 }
 
+gulp.task("rollup-jsx", () => {
+  const {input, output, plugins} = rollupConfig;
+  return rollup
+    .rollup({
+      input,
+      plugins,
+    })
+    .then((bundle) => {
+      return bundle.write({
+        file: output.file,
+        format: output.format,
+        name: "library",
+        sourcemap: true,
+      });
+    });
+});
+
 gulp.task('views', () =>
   gulp
     .src([
@@ -89,32 +108,43 @@ gulp.task('styles', () =>
 gulp.task('clean', () => del(['dist'], { dot: true }))
 
 // Static Server (development)
-gulp.task('default',
-  gulp.series('clean', gulp.parallel('assets', 'views', 'styles', 'scripts', 'favicon'),
-  function () {
-    browserSync({
-      // The starter kit opens itself up in a new browser tab every time the app starts.
-      // Uncomment the next line to prevent this behavior:
-      // open: false,
-      notify: false,
-      server: 'dist'
-    })
-    gulp.watch('src/styles/**/*.scss', gulp.series('styles'))
-    gulp.watch([
-      'src/views/**/*.html',
-      'src/views/data/*.json'
-    ], gulp.series('views'))
-    gulp.watch('src/assets/**/*.{woff,woff2,txt,jpg,png,gif,svg}', gulp.series('assets'))
-    gulp.watch('src/scripts/**/*.js', gulp.series('scripts'))
-    gulp.watch([
-      'dist/**/*.html',
-      'dist/scripts/**/*.js',
+gulp.task(
+  "default",
+  gulp.series(
+    "clean",
+    gulp.parallel("assets", "views", "styles", "scripts", "rollup-jsx", "favicon"),
+    function () {
+      browserSync({
+        // The starter kit opens itself up in a new browser tab every time the app starts.
+        // Uncomment the next line to prevent this behavior:
+        // open: false,
+        notify: false,
+        server: "dist",
+      });
+      gulp.watch("src/styles/**/*.scss", gulp.series("styles"));
+      gulp.watch(
+        ["src/views/**/*.html", "src/views/data/*.json"],
+        gulp.series("views")
+      );
+      gulp.watch(
+        "src/assets/**/*.{woff,woff2,txt,jpg,png,gif,svg}",
+        gulp.series("assets")
+      );
+      gulp.watch("src/scripts/**/*.js", gulp.series("scripts"));
+      gulp.watch("src/scripts/**/*.jsx", gulp.series("rollup-jsx"));
+      gulp
+        .watch([
+          "dist/**/*.html",
+          "dist/scripts/**/*.js*",
 
-      // Note: we're not watching icons and fonts changes,
-      // as they're slowing down the task
-      'dist/assets/*.{woff,woff2,txt,jpg,png,gif,svg}',
-      'dist/assets/styles/*.css'
-    ]).on('change', browserSync.reload)
-  }))
+          // Note: we're not watching icons and fonts changes,
+          // as they're slowing down the task
+          "dist/assets/*.{woff,woff2,txt,jpg,png,gif,svg}",
+          "dist/assets/styles/*.css",
+        ])
+        .on("change", browserSync.reload);
+    }
+  )
+);
 
 gulp.task('build', gulp.series('clean', 'assets', 'views', 'styles', 'scripts', 'favicon'))
